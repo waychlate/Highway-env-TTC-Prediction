@@ -10,7 +10,6 @@
 #SBATCH --mem=32gb                    # Job memory request
 #SBATCH --gres=gpu:1                  # Request 1 GPU (e.g. A100, RTX3090, etc.)
 #SBATCH --time=04:00:00               # Time limit hrs:min:sec
-#SBATCH --partition=gpu               # Partition name
 
 echo "Job Start"
 date;hostname;pwd

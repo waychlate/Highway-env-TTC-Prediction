@@ -33,6 +33,8 @@ def main():
     parser.add_argument("--save-path", type=str, default="best_model.pth", help="File path to save the best model weights")
     parser.add_argument("--num-train-episodes", type=int, default=None, help="Number of training episodes to use (None for all)")
     parser.add_argument("--num-test-episodes", type=int, default=None, help="Number of test episodes to use (None for all)")
+    parser.add_argument("--use-cache", action="store_true", default=False, help="Cache resized dataset in RAM (default: False)")
+    parser.add_argument("--restart", action="store_true", default=False, help="Ignore existing checkpoint.pth and restart training from epoch 1")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -45,14 +47,16 @@ def main():
     train_dataset = TTCDataset(
         data_dir=args.train_dir,
         seq_len=args.seq_len,
-        resize_shape=(args.resize_h, args.resize_w)
+        resize_shape=(args.resize_h, args.resize_w),
+        use_cache=args.use_cache
     )
     
     print("Loading test dataset...")
     test_dataset = TTCDataset(
         data_dir=args.test_dir,
         seq_len=args.seq_len,
-        resize_shape=(args.resize_h, args.resize_w)
+        resize_shape=(args.resize_h, args.resize_w),
+        use_cache=args.use_cache
     )
     
     # Apply limit on episodes if specified
@@ -94,10 +98,24 @@ def main():
     
     print(f"Total trainable parameters: {sum(p.numel() for p in trainable_params)}")
     
+    checkpoint_path = "checkpoint.pth"
+    start_epoch = 1
     best_val_loss = float('inf')
     
+    if os.path.exists(checkpoint_path) and not args.restart:
+        print(f"Found checkpoint at {checkpoint_path}. Resuming training...")
+        try:
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_epoch = checkpoint['epoch'] + 1
+            best_val_loss = checkpoint['best_val_loss']
+            print(f"Resuming from Epoch {start_epoch} (Best Val Loss so far: {best_val_loss:.4f})")
+        except Exception as e:
+            print(f"Error loading checkpoint: {e}. Starting from scratch.")
+            
     # 4. Training Loop
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         model.train()
         train_loss = 0.0
         
@@ -142,9 +160,22 @@ def main():
             best_val_loss = epoch_val_loss
             torch.save(model.state_dict(), args.save_path)
             print(f"New best model saved to {args.save_path} (Val MSE: {best_val_loss:.4f})")
+            
+        # Save checkpoint for resuming
+        checkpoint = {
+            'epoch': epoch,
+            'model_state_dict': model.state_dict(),
+            'optimizer_state_dict': optimizer.state_dict(),
+            'best_val_loss': best_val_loss,
+        }
+        torch.save(checkpoint, checkpoint_path)
+        print(f"Saved checkpoint to {checkpoint_path}")
         print()
         
     print("Training finished!")
+    if os.path.exists(checkpoint_path):
+        os.remove(checkpoint_path)
+        print("Removed temporary checkpoint file.")
 
 if __name__ == "__main__":
     main()

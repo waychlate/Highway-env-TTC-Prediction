@@ -7,10 +7,11 @@ from torch.utils.data import Dataset
 from PIL import Image
 
 class TTCDataset(Dataset):
-    def __init__(self, data_dir, seq_len=10, resize_shape=(64, 256)):
+    def __init__(self, data_dir, seq_len=10, resize_shape=(64, 256), use_cache=False):
         self.data_dir = data_dir
         self.seq_len = seq_len
         self.resize_shape = resize_shape
+        self.use_cache = use_cache
         
         # Get sorted lists of CSV and NPZ files
         self.csv_files = sorted(glob.glob(os.path.join(data_dir, "*_data.csv")))
@@ -23,14 +24,13 @@ class TTCDataset(Dataset):
         self.total_samples = self.num_episodes * self.steps_per_episode
         
         # Cache for loaded and resized episodes
-        # Cache stores: episode_idx -> (visuals_array, ttc_array)
         self.cache = {}
 
     def __len__(self):
         return self.total_samples
 
     def _load_episode(self, ep_idx):
-        if ep_idx in self.cache:
+        if self.use_cache and ep_idx in self.cache:
             return self.cache[ep_idx]
             
         csv_path = self.csv_files[ep_idx]
@@ -53,7 +53,8 @@ class TTCDataset(Dataset):
                 resized_visuals.append(np.array(img))
             visuals = np.stack(resized_visuals, axis=0) # (101, H_new, W_new, 3)
             
-        self.cache[ep_idx] = (visuals, ttc)
+        if self.use_cache:
+            self.cache[ep_idx] = (visuals, ttc)
         return visuals, ttc
 
     def __getitem__(self, idx):
