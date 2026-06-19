@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--save-path", type=str, default="best_model.pth", help="File path to save the best model weights")
     parser.add_argument("--num-train-episodes", type=int, default=None, help="Number of training episodes to use (None for all)")
     parser.add_argument("--num-test-episodes", type=int, default=None, help="Number of test episodes to use (None for all)")
-    parser.add_argument("--use-cache", action="store_true", default=False, help="Cache resized dataset in RAM (default: False)")
+    parser.add_argument("--no-cache", dest="use_cache", action="store_false", default=True, help="Disable caching resized dataset in RAM")
     parser.add_argument("--restart", action="store_true", default=False, help="Ignore existing checkpoint.pth and restart training from epoch 1")
     
     args = parser.parse_args()
