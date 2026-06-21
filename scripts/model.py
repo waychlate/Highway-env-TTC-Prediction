@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 
 class VideoTTCPredictor(nn.Module):
-    def __init__(self, hidden_dim=256):
+    def __init__(self, hidden_dim=256, dropout=0.2):
         super(VideoTTCPredictor, self).__init__()
         
         # 1. Use a proven backbone (ResNet18) stripped of its final classification layer
@@ -11,12 +11,19 @@ class VideoTTCPredictor(nn.Module):
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
         
         # Freezing early layers can speed up training if data is limited
-        self.lstm = nn.LSTM(input_size=512, hidden_size=hidden_dim, num_layers=2, batch_first=True)
+        self.lstm = nn.LSTM(
+            input_size=512, 
+            hidden_size=hidden_dim, 
+            num_layers=2, 
+            batch_first=True,
+            dropout=dropout if dropout > 0 else 0
+        )
         
         # 2. Regression head to output the continuous TTC value
         self.regressor = nn.Sequential(
             nn.Linear(hidden_dim, 128),
             nn.ReLU(),
+            nn.Dropout(p=dropout),
             nn.Linear(128, 1)
         )
         

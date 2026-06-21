@@ -26,6 +26,8 @@ python train.py \
     --batch-size 32 \
     --seq-len 10 \
     --lr 1e-4 \
+    --dropout 0.2 \
+    --restart \
     --save-path best_model.pth
 
 echo "Running post-training evaluation..."

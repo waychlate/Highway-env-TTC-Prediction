@@ -35,6 +35,7 @@ def main():
     parser.add_argument("--num-test-episodes", type=int, default=None, help="Number of test episodes to use (None for all)")
     parser.add_argument("--no-cache", dest="use_cache", action="store_false", default=True, help="Disable caching resized dataset in RAM")
     parser.add_argument("--restart", action="store_true", default=False, help="Ignore existing checkpoint.pth and restart training from epoch 1")
+    parser.add_argument("--dropout", type=float, default=0.2, help="Dropout probability (default: 0.2)")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -79,8 +80,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}...")
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim)
+    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim} and dropout={args.dropout}...")
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout)
     
     # Freeze backbone if requested
     if args.freeze_backbone:
