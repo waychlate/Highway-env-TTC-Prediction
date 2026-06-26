@@ -36,6 +36,9 @@ def main():
     parser.add_argument("--no-cache", dest="use_cache", action="store_false", default=True, help="Disable caching resized dataset in RAM")
     parser.add_argument("--restart", action="store_true", default=False, help="Ignore existing checkpoint.pth and restart training from epoch 1")
     parser.add_argument("--dropout", type=float, default=0.2, help="Dropout probability (default: 0.2)")
+    parser.add_argument("--loss-fn", type=str, default="huber", choices=["mse", "huber", "l1"], help="Loss function to use (default: huber)")
+    parser.add_argument("--use-scheduler", action="store_true", default=True, help="Use Cosine Annealing learning rate scheduler")
+    parser.add_argument("--no-scheduler", dest="use_scheduler", action="store_false", help="Disable learning rate scheduler")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -92,11 +95,26 @@ def main():
     model = model.to(device)
     
     # 3. Define Optimizer and Loss Function
-    criterion = nn.MSELoss()
+    if args.loss_fn == "huber":
+        criterion = nn.HuberLoss(delta=1.0)
+        print("Using Huber Loss (Smooth L1 Loss)")
+    elif args.loss_fn == "l1":
+        criterion = nn.L1Loss()
+        print("Using L1 Loss (MAE)")
+    else:
+        criterion = nn.MSELoss()
+        print("Using MSE Loss")
+        
     # Only optimize parameters that require gradients
     trainable_params = [p for p in model.parameters() if p.requires_grad]
     optimizer = optim.AdamW(trainable_params, lr=args.lr, weight_decay=1e-4)
     
+    # Define learning rate scheduler
+    scheduler = None
+    if args.use_scheduler:
+        scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=args.epochs)
+        print("Using Cosine Annealing learning rate scheduler")
+        
     print(f"Total trainable parameters: {sum(p.numel() for p in trainable_params)}")
     
     checkpoint_path = "checkpoint.pth"
@@ -109,6 +127,8 @@ def main():
             checkpoint = torch.load(checkpoint_path, map_location=device)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if scheduler is not None and 'scheduler_state_dict' in checkpoint:
+                scheduler.load_state_dict(checkpoint['scheduler_state_dict'])
             start_epoch = checkpoint['epoch'] + 1
             best_val_loss = checkpoint['best_val_loss']
             print(f"Resuming from Epoch {start_epoch} (Best Val Loss so far: {best_val_loss:.4f})")
@@ -135,10 +155,13 @@ def main():
                 print(f"Epoch {epoch}/{args.epochs} | Batch {batch_idx + 1}/{len(train_loader)} | Loss: {loss.item():.4f}")
                 
         epoch_train_loss = train_loss / len(train_dataset)
+        if scheduler is not None:
+            scheduler.step()
         
         # Validation
         model.eval()
         val_loss = 0.0
+        val_mse = 0.0
         val_mae = 0.0
         
         with torch.no_grad():
@@ -147,20 +170,23 @@ def main():
                 outputs = model(inputs)
                 loss = criterion(outputs, targets)
                 val_loss += loss.item() * inputs.size(0)
+                val_mse += ((outputs - targets) ** 2).sum().item()
                 val_mae += torch.abs(outputs - targets).sum().item()
                 
         epoch_val_loss = val_loss / len(test_dataset)
+        epoch_val_mse = val_mse / len(test_dataset)
         epoch_val_mae = val_mae / len(test_dataset)
         
         print(f"=== Epoch {epoch} Complete ===")
-        print(f"Train MSE: {epoch_train_loss:.4f}")
-        print(f"Val MSE:   {epoch_val_loss:.4f} | Val RMSE: {np.sqrt(epoch_val_loss):.4f} | Val MAE: {epoch_val_mae:.4f}")
+        print(f"Train Loss ({args.loss_fn}): {epoch_train_loss:.4f}")
+        print(f"Val Loss ({args.loss_fn}):   {epoch_val_loss:.4f}")
+        print(f"Val MSE:   {epoch_val_mse:.4f} | Val RMSE: {np.sqrt(epoch_val_mse):.4f} | Val MAE: {epoch_val_mae:.4f}")
         
         # Save best model
         if epoch_val_loss < best_val_loss:
             best_val_loss = epoch_val_loss
             torch.save(model.state_dict(), args.save_path)
-            print(f"New best model saved to {args.save_path} (Val MSE: {best_val_loss:.4f})")
+            print(f"New best model saved to {args.save_path} (Val Loss: {best_val_loss:.4f})")
             
         # Save checkpoint for resuming
         checkpoint = {
@@ -169,6 +195,9 @@ def main():
             'optimizer_state_dict': optimizer.state_dict(),
             'best_val_loss': best_val_loss,
         }
+        if scheduler is not None:
+            checkpoint['scheduler_state_dict'] = scheduler.state_dict()
+            
         torch.save(checkpoint, checkpoint_path)
         print(f"Saved checkpoint to {checkpoint_path}")
         print()

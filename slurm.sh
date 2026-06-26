@@ -25,8 +25,11 @@ python train.py \
     --epochs 10 \
     --batch-size 32 \
     --seq-len 10 \
-    --lr 1e-4 \
+    --lr 3e-5 \
     --dropout 0.2 \
+    --unfreeze-backbone \
+    --loss-fn huber \
+    --use-scheduler \
     --restart \
     --save-path best_model.pth
 
