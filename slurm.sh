@@ -3,7 +3,7 @@
 #SBATCH --output=ttc_train_%j.log     # Standard output log
 #SBATCH --error=ttc_train_%j.err      # Standard error log
 #SBATCH --mail-type=BEGIN,END,FAIL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user=khek.do@ufl.edu # Where to send mail
+#SBATCH --mail-user= # Where to send mail
 #SBATCH --nodes=1                     # Run all tasks on a single node
 #SBATCH --ntasks=1                    # Run a single task
 #SBATCH --cpus-per-task=4             # Number of CPU cores per task
@@ -20,8 +20,8 @@ module load python/3.11
 module load pytorch/2.0.1
 
 python train.py \
-    --train-dir /blue/iruchkin/khek.do/output_ttc_sorted/train \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
+    --train-dir /x/x/x \
+    --test-dir /x/x/x  \
     --epochs 10 \
     --batch-size 32 \
     --seq-len 10 \
@@ -35,7 +35,7 @@ python train.py \
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
+    --test-dir /foo/bar \
     --model-path best_model.pth \
     --seq-len 10 \
     --output-plot ttc_predictions_comparison.png
