@@ -20,11 +20,13 @@ module load python/3.11
 module load pytorch/2.0.1
 
 python train.py \
-    --train-dir /x/x/x \
-    --test-dir /x/x/x  \
+    --train-dir /blue/iruchkin/khek.do/output_ttc_sorted/train \
+    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test  \
     --epochs 10 \
     --batch-size 32 \
-    --seq-len 10 \
+    --seq-len 20 \
+    --pred-horizon 10 \
+    --action-dim 16 \
     --lr 3e-5 \
     --dropout 0.2 \
     --unfreeze-backbone \
@@ -35,9 +37,11 @@ python train.py \
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir /foo/bar \
+    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
     --model-path best_model.pth \
-    --seq-len 10 \
+    --seq-len 20 \
+    --pred-horizon 10 \
+    --action-dim 16 \
     --output-plot ttc_predictions_comparison.png
 
 echo "Job End"

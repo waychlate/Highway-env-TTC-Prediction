@@ -8,11 +8,13 @@ from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 
 class TTCDataset(Dataset):
-    def __init__(self, data_dir, seq_len=10, resize_shape=(64, 256), use_cache=True):
+    def __init__(self, data_dir, seq_len=20, pred_horizon=10, resize_shape=(64, 256), use_cache=True, return_weights=False):
         self.data_dir = data_dir
         self.seq_len = seq_len
+        self.pred_horizon = pred_horizon
         self.resize_shape = resize_shape
         self.use_cache = use_cache
+        self.return_weights = return_weights
         
         # Get sorted lists of CSV and NPZ files
         self.csv_files = sorted(glob.glob(os.path.join(data_dir, "*_data.csv")))
@@ -29,6 +31,7 @@ class TTCDataset(Dataset):
             # Pre-allocate shared memory PyTorch tensors to prevent copy-on-write RAM inflation
             self.visuals = torch.zeros((self.num_episodes, 101, 3, self.resize_shape[0], self.resize_shape[1]), dtype=torch.uint8)
             self.ttc = torch.zeros((self.num_episodes, 101), dtype=torch.float32)
+            self.actions = torch.zeros((self.num_episodes, 101), dtype=torch.long)
             
             with ThreadPoolExecutor(max_workers=16) as executor:
                 executor.map(self._preload_episode, range(self.num_episodes))
@@ -38,6 +41,7 @@ class TTCDataset(Dataset):
             self.last_ep_idx = -1
             self.last_visuals = None
             self.last_ttc = None
+            self.last_actions = None
 
     def _preload_episode(self, ep_idx):
         csv_path = self.csv_files[ep_idx]
@@ -46,6 +50,7 @@ class TTCDataset(Dataset):
         # Load CSV data
         df = pd.read_csv(csv_path)
         ttc = df['obs_ttc'].values.astype(np.float32)
+        actions = df['action'].values.astype(np.int64)
         
         # Load NPZ visuals
         npz = np.load(npz_path)
@@ -62,10 +67,11 @@ class TTCDataset(Dataset):
         # Permute to channels-first (101, 3, H, W) and store
         self.visuals[ep_idx] = torch.from_numpy(visuals_resized).permute(0, 3, 1, 2)
         self.ttc[ep_idx] = torch.from_numpy(ttc)
+        self.actions[ep_idx] = torch.from_numpy(actions)
 
     def _load_episode_on_the_fly(self, ep_idx):
         if ep_idx == self.last_ep_idx:
-            return self.last_visuals, self.last_ttc
+            return self.last_visuals, self.last_ttc, self.last_actions
             
         csv_path = self.csv_files[ep_idx]
         npz_path = self.npz_files[ep_idx]
@@ -73,6 +79,7 @@ class TTCDataset(Dataset):
         # Load CSV data
         df = pd.read_csv(csv_path)
         ttc = df['obs_ttc'].values.astype(np.float32)
+        actions = df['action'].values.astype(np.int64)
         
         # Load NPZ visuals
         npz = np.load(npz_path)
@@ -90,7 +97,8 @@ class TTCDataset(Dataset):
         self.last_ep_idx = ep_idx
         self.last_visuals = visuals
         self.last_ttc = ttc
-        return visuals, ttc
+        self.last_actions = actions
+        return visuals, ttc, actions
 
     def __len__(self):
         return self.total_samples
@@ -105,26 +113,35 @@ class TTCDataset(Dataset):
             if start_idx < 0:
                 indices = [0] * (-start_idx) + list(range(0, step_idx + 1))
                 seq_tensor = self.visuals[ep_idx, indices]
+                seq_actions = self.actions[ep_idx, indices]
             else:
                 seq_tensor = self.visuals[ep_idx, start_idx : step_idx + 1]
+                seq_actions = self.actions[ep_idx, start_idx : step_idx + 1]
                 
-            target_ttc = self.ttc[ep_idx, step_idx]
+            target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
+            target_ttc = self.ttc[ep_idx, target_step_idx]
             seq_tensor = seq_tensor.float() / 255.0
         else:
-            visuals, ttc = self._load_episode_on_the_fly(ep_idx)
+            visuals, ttc, actions = self._load_episode_on_the_fly(ep_idx)
             start_idx = step_idx - self.seq_len + 1
             if start_idx < 0:
                 seq_visuals = []
+                seq_acts = []
                 num_pads = -start_idx
                 for _ in range(num_pads):
                     seq_visuals.append(visuals[0])
+                    seq_acts.append(actions[0])
                 for t in range(0, step_idx + 1):
                     seq_visuals.append(visuals[t])
+                    seq_acts.append(actions[t])
                 seq_visuals = np.stack(seq_visuals, axis=0)
+                seq_actions = torch.tensor(seq_acts, dtype=torch.long)
             else:
                 seq_visuals = visuals[start_idx : step_idx + 1]
+                seq_actions = torch.from_numpy(actions[start_idx : step_idx + 1]).long()
                 
-            target_ttc = ttc[step_idx]
+            target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
+            target_ttc = ttc[target_step_idx]
             seq_tensor = torch.from_numpy(seq_visuals).permute(0, 3, 1, 2).float() / 255.0
         
         # ImageNet normalization
@@ -133,4 +150,10 @@ class TTCDataset(Dataset):
         std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
         seq_tensor = (seq_tensor - mean) / std
         
-        return seq_tensor, torch.tensor([target_ttc], dtype=torch.float32)
+        if self.return_weights:
+            # Proportional weight: (number of real frames) / seq_len
+            num_real_frames = min(step_idx + 1, self.seq_len)
+            weight = num_real_frames / self.seq_len
+            return seq_tensor, seq_actions, torch.tensor([target_ttc], dtype=torch.float32), torch.tensor([weight], dtype=torch.float32)
+            
+        return seq_tensor, seq_actions, torch.tensor([target_ttc], dtype=torch.float32)

@@ -23,7 +23,8 @@ def main():
     parser.add_argument("--epochs", type=int, default=10, help="Number of training epochs")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size for training")
     parser.add_argument("--lr", type=float, default=1e-4, help="Learning rate")
-    parser.add_argument("--seq-len", type=int, default=10, help="Temporal sequence length")
+    parser.add_argument("--seq-len", type=int, default=20, help="Temporal sequence length (context length)")
+    parser.add_argument("--pred-horizon", type=int, default=10, help="Prediction horizon in steps")
     parser.add_argument("--resize-h", type=int, default=64, help="Height to resize frames")
     parser.add_argument("--resize-w", type=int, default=256, help="Width to resize frames")
     parser.add_argument("--hidden-dim", type=int, default=256, help="LSTM hidden dimension size")
@@ -39,6 +40,7 @@ def main():
     parser.add_argument("--loss-fn", type=str, default="huber", choices=["mse", "huber", "l1"], help="Loss function to use (default: huber)")
     parser.add_argument("--use-scheduler", action="store_true", default=True, help="Use Cosine Annealing learning rate scheduler")
     parser.add_argument("--no-scheduler", dest="use_scheduler", action="store_false", help="Disable learning rate scheduler")
+    parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -51,14 +53,17 @@ def main():
     train_dataset = TTCDataset(
         data_dir=args.train_dir,
         seq_len=args.seq_len,
+        pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
-        use_cache=args.use_cache
+        use_cache=args.use_cache,
+        return_weights=True
     )
     
     print("Loading test dataset...")
     test_dataset = TTCDataset(
         data_dir=args.test_dir,
         seq_len=args.seq_len,
+        pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
         use_cache=args.use_cache
     )
@@ -83,8 +88,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim} and dropout={args.dropout}...")
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout)
+    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, and action_dim={args.action_dim}...")
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout, action_dim=args.action_dim)
     
     # Freeze backbone if requested
     if args.freeze_backbone:
@@ -96,14 +101,14 @@ def main():
     
     # 3. Define Optimizer and Loss Function
     if args.loss_fn == "huber":
-        criterion = nn.HuberLoss(delta=1.0)
-        print("Using Huber Loss (Smooth L1 Loss)")
+        criterion = nn.HuberLoss(delta=1.0, reduction='none')
+        print("Using Huber Loss (Smooth L1 Loss) with reduction='none'")
     elif args.loss_fn == "l1":
-        criterion = nn.L1Loss()
-        print("Using L1 Loss (MAE)")
+        criterion = nn.L1Loss(reduction='none')
+        print("Using L1 Loss (MAE) with reduction='none'")
     else:
-        criterion = nn.MSELoss()
-        print("Using MSE Loss")
+        criterion = nn.MSELoss(reduction='none')
+        print("Using MSE Loss with reduction='none'")
         
     # Only optimize parameters that require gradients
     trainable_params = [p for p in model.parameters() if p.requires_grad]
@@ -140,12 +145,12 @@ def main():
         model.train()
         train_loss = 0.0
         
-        for batch_idx, (inputs, targets) in enumerate(train_loader):
-            inputs, targets = inputs.to(device), targets.to(device)
+        for batch_idx, (inputs, actions, targets, weights) in enumerate(train_loader):
+            inputs, actions, targets, weights = inputs.to(device), actions.to(device), targets.to(device), weights.to(device)
             
             optimizer.zero_grad()
-            outputs = model(inputs)
-            loss = criterion(outputs, targets)
+            outputs = model(inputs, actions)
+            loss = (criterion(outputs, targets) * weights).mean()
             loss.backward()
             optimizer.step()
             
@@ -165,10 +170,10 @@ def main():
         val_mae = 0.0
         
         with torch.no_grad():
-            for inputs, targets in test_loader:
-                inputs, targets = inputs.to(device), targets.to(device)
-                outputs = model(inputs)
-                loss = criterion(outputs, targets)
+            for inputs, actions, targets in test_loader:
+                inputs, actions, targets = inputs.to(device), actions.to(device), targets.to(device)
+                outputs = model(inputs, actions)
+                loss = criterion(outputs, targets).mean()
                 val_loss += loss.item() * inputs.size(0)
                 val_mse += ((outputs - targets) ** 2).sum().item()
                 val_mae += torch.abs(outputs - targets).sum().item()

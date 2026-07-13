@@ -12,12 +12,14 @@ def main():
     parser.add_argument("--test-dir", type=str, default="data/test", help="Path to test data directory")
     parser.add_argument("--model-path", type=str, default="best_model.pth", help="Path to model weights")
     parser.add_argument("--batch-size", type=int, default=32, help="Batch size for evaluation")
-    parser.add_argument("--seq-len", type=int, default=10, help="Sequence length")
+    parser.add_argument("--seq-len", type=int, default=20, help="Sequence length (context length)")
+    parser.add_argument("--pred-horizon", type=int, default=10, help="Prediction horizon in steps")
     parser.add_argument("--resize-h", type=int, default=64, help="Height to resize frames")
     parser.add_argument("--resize-w", type=int, default=256, help="Width to resize frames")
     parser.add_argument("--hidden-dim", type=int, default=256, help="LSTM hidden dimension size")
     parser.add_argument("--plot-episodes", type=int, default=3, help="Number of episodes to plot comparisons for")
     parser.add_argument("--output-plot", type=str, default="ttc_predictions_comparison.png", help="Filename for the comparison plot")
+    parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
     
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -28,6 +30,7 @@ def main():
     dataset = TTCDataset(
         data_dir=args.test_dir,
         seq_len=args.seq_len,
+        pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w)
     )
     
@@ -35,7 +38,7 @@ def main():
     
     # 2. Instantiate and Load Model
     print(f"Loading model from {args.model_path}...")
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim)
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim)
     if not os.path.exists(args.model_path):
         print(f"Error: Model weights not found at {args.model_path}. Please train the model first.")
         return
@@ -50,9 +53,10 @@ def main():
     
     print("Running evaluation on test cases...")
     with torch.no_grad():
-        for inputs, targets in loader:
+        for inputs, actions, targets in loader:
             inputs = inputs.to(device)
-            outputs = model(inputs)
+            actions = actions.to(device)
+            outputs = model(inputs, actions)
             
             all_preds.extend(outputs.cpu().numpy().flatten())
             all_targets.extend(targets.numpy().flatten())
