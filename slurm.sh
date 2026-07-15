@@ -20,8 +20,8 @@ module load python/3.11
 module load pytorch/2.0.1
 
 python train.py \
-    --train-dir /blue/iruchkin/khek.do/output_ttc_sorted/train \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test  \
+    --train-dir \
+    --test-dir \
     --epochs 10 \
     --batch-size 32 \
     --seq-len 20 \
@@ -37,7 +37,7 @@ python train.py \
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
+    --test-dir \
     --model-path best_model.pth \
     --seq-len 20 \
     --pred-horizon 10 \
