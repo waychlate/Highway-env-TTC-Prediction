@@ -37,13 +37,19 @@ def main():
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate and Load Model
-    print(f"Loading model from {args.model_path}...")
     model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim)
-    if not os.path.exists(args.model_path):
-        print(f"Error: Model weights not found at {args.model_path}. Please train the model first.")
-        return
+    model_path = args.model_path
+    if not os.path.exists(model_path):
+        fallback_path = model_path.replace(".pth", "_final.pth")
+        if os.path.exists(fallback_path):
+            print(f"Warning: {model_path} not found. Falling back to final epoch weights at {fallback_path}...")
+            model_path = fallback_path
+        else:
+            print(f"Error: Model weights not found at {model_path} or fallback {fallback_path}. Please train the model first.")
+            return
         
-    model.load_state_dict(torch.load(args.model_path, map_location=device))
+    print(f"Loading model from {model_path}...")
+    model.load_state_dict(torch.load(model_path, map_location=device))
     model = model.to(device)
     model.eval()
     

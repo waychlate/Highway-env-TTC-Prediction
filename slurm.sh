@@ -9,7 +9,7 @@
 #SBATCH --cpus-per-task=4             # Number of CPU cores per task
 #SBATCH --mem=32gb                    # Job memory request
 #SBATCH --gres=gpu:1                  # Request 1 GPU (e.g. A100, RTX3090, etc.)
-#SBATCH --time=04:00:00               # Time limit hrs:min:sec
+#SBATCH --time=08:00:00               # Time limit hrs:min:sec
 
 echo "Job Start"
 date;hostname;pwd
@@ -20,8 +20,8 @@ module load python/3.11
 module load pytorch/2.0.1
 
 python train.py \
-    --train-dir \
-    --test-dir \
+    --train-dir /blue/iruchkin/khek.do/output_ttc_sorted/train \
+    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
     --epochs 10 \
     --batch-size 32 \
     --seq-len 20 \
@@ -37,7 +37,7 @@ python train.py \
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir \
+    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
     --model-path best_model.pth \
     --seq-len 20 \
     --pred-horizon 10 \

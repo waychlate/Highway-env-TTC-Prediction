@@ -208,9 +208,19 @@ def main():
         print()
         
     print("Training finished!")
+    
+    # Safety Save: Always save the final epoch's weights
+    final_save_path = args.save_path.replace(".pth", "_final.pth")
+    torch.save(model.state_dict(), final_save_path)
+    print(f"Saved final epoch model weights to {final_save_path}")
+    
+    # Only remove checkpoint if the best model or final model was successfully saved
     if os.path.exists(checkpoint_path):
-        os.remove(checkpoint_path)
-        print("Removed temporary checkpoint file.")
+        if os.path.exists(args.save_path) or os.path.exists(final_save_path):
+            os.remove(checkpoint_path)
+            print("Removed temporary checkpoint file.")
+        else:
+            print("Warning: Model files were not found. Preserving checkpoint.pth for safety.")
 
 if __name__ == "__main__":
     main()
