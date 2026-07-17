@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--plot-episodes", type=int, default=3, help="Number of episodes to plot comparisons for")
     parser.add_argument("--output-plot", type=str, default="ttc_predictions_comparison.png", help="Filename for the comparison plot")
     parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
+    parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,7 +38,7 @@ def main():
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate and Load Model
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim)
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim, use_actions=args.use_actions)
     model_path = args.model_path
     if not os.path.exists(model_path):
         fallback_path = model_path.replace(".pth", "_final.pth")

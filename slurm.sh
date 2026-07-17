@@ -3,7 +3,7 @@
 #SBATCH --output=ttc_train_%j.log     # Standard output log
 #SBATCH --error=ttc_train_%j.err      # Standard error log
 #SBATCH --mail-type=BEGIN,END,FAIL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
-#SBATCH --mail-user= # Where to send mail
+#SBATCH --mail-user=khek.do@ufl.edu # Where to send mail
 #SBATCH --nodes=1                     # Run all tasks on a single node
 #SBATCH --ntasks=1                    # Run a single task
 #SBATCH --cpus-per-task=4             # Number of CPU cores per task
@@ -20,29 +20,21 @@ module load python/3.11
 module load pytorch/2.0.1
 
 python train.py \
-    --train-dir /blue/iruchkin/khek.do/output_ttc_sorted/train \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
-    --epochs 10 \
-    --batch-size 32 \
+    --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
+    --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --seq-len 20 \
     --pred-horizon 10 \
-    --action-dim 16 \
     --lr 3e-5 \
-    --dropout 0.2 \
-    --unfreeze-backbone \
-    --loss-fn huber \
-    --use-scheduler \
-    --restart \
-    --save-path best_model.pth
+    --dropout 0.4 \
+    --no-actions \
+    --restart
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir /blue/iruchkin/khek.do/output_ttc_sorted/test \
-    --model-path best_model.pth \
+    --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --seq-len 20 \
     --pred-horizon 10 \
-    --action-dim 16 \
-    --output-plot ttc_predictions_comparison.png
+    --no-actions
 
 echo "Job End"
 date

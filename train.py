@@ -41,6 +41,7 @@ def main():
     parser.add_argument("--use-scheduler", action="store_true", default=True, help="Use Cosine Annealing learning rate scheduler")
     parser.add_argument("--no-scheduler", dest="use_scheduler", action="store_false", help="Disable learning rate scheduler")
     parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
+    parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -88,8 +89,8 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, and action_dim={args.action_dim}...")
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout, action_dim=args.action_dim)
+    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, and use_actions={args.use_actions}...")
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout, action_dim=args.action_dim, use_actions=args.use_actions)
     
     # Freeze backbone if requested
     if args.freeze_backbone:
