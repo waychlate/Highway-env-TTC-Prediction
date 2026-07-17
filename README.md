@@ -65,6 +65,7 @@ python train.py --train-dir data/train --test-dir data/test --epochs 10 --seq-le
 * `--hidden-dim`: Dimension of the LSTM hidden layers (default: `256`).
 * `--action-dim`: Dimension of the action embedding layer (default: `16`).
 * `--no-actions`: Disable vehicle action inputs in the model (runs in **frames-only** mode).
+* `--backbone-mode`: Set training mode for CNN backbone: `frozen` (all layers frozen), `partial` (layer3 & layer4 trainable, default), `unfrozen` (fully trainable).
 * `--loss-fn`: Loss criterion (`huber`, `mse`, `l1`).
 * `--restart`: Use this flag if you want to explicitly ignore any existing checkpoints and start from epoch 1.
 

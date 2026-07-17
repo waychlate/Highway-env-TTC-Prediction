@@ -17,7 +17,12 @@ echo "---"
 
 module purge
 module load python/3.11
-module load pytorch/2.0.1
+python -m venv .venv
+
+source .venv/bin/activate
+
+pip install --upgrade pip
+pip install "numpy<2" pandas numexpr torch torchvision matplotlib
 
 python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \

@@ -30,6 +30,7 @@ def main():
     parser.add_argument("--hidden-dim", type=int, default=256, help="LSTM hidden dimension size")
     parser.add_argument("--freeze-backbone", action="store_true", default=True, help="Freeze the ResNet feature extractor weights")
     parser.add_argument("--unfreeze-backbone", dest="freeze_backbone", action="store_false", help="Do not freeze the ResNet weights")
+    parser.add_argument("--backbone-mode", type=str, default="partial", choices=["frozen", "partial", "unfrozen"], help="Backbone training mode: frozen (all layers frozen), partial (layer3 & layer4 unfrozen), unfrozen (all layers unfrozen)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--save-path", type=str, default="best_model.pth", help="File path to save the best model weights")
     parser.add_argument("--num-train-episodes", type=int, default=None, help="Number of training episodes to use (None for all)")
@@ -92,11 +93,26 @@ def main():
     print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, and use_actions={args.use_actions}...")
     model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout, action_dim=args.action_dim, use_actions=args.use_actions)
     
-    # Freeze backbone if requested
-    if args.freeze_backbone:
-        print("Freezing CNN feature extractor backbone weights...")
+    # Set backbone gradients based on mode and flags
+    backbone_mode = args.backbone_mode
+    if not args.freeze_backbone:  # Overridden by --unfreeze-backbone
+        backbone_mode = "unfrozen"
+        
+    if backbone_mode == "frozen":
+        print("Freezing all CNN backbone weights...")
         for param in model.feature_extractor.parameters():
             param.requires_grad = False
+    elif backbone_mode == "partial":
+        print("Freezing early CNN backbone layers, keeping layer3 and layer4 unfrozen...")
+        for name, param in model.feature_extractor.named_parameters():
+            if name.startswith('6.') or name.startswith('7.'):  # layer3 and layer4
+                param.requires_grad = True
+            else:
+                param.requires_grad = False
+    else:
+        print("Keeping all CNN backbone weights unfrozen (full fine-tuning)...")
+        for param in model.feature_extractor.parameters():
+            param.requires_grad = True
             
     model = model.to(device)
     
