@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ttc_train          # Job name
-#SBATCH --output=ttc_train_%j.log     # Standard output log
+#SBATCH --output=logs/ttc_train_%j.log     # Standard output log
 #SBATCH --error=ttc_train_%j.err      # Standard error log
 #SBATCH --mail-type=BEGIN,END,FAIL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=khek.do@ufl.edu # Where to send mail
