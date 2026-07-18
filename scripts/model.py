@@ -8,7 +8,7 @@ class VideoTTCPredictor(nn.Module):
         self.use_actions = use_actions
         
         # 1. Use a proven backbone (ResNet18) stripped of its final classification layer
-        resnet = models.resnet18(pretrained=True)
+        resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
         
         if self.use_actions and action_dim > 0:

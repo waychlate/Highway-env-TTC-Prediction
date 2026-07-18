@@ -17,22 +17,25 @@ echo "---"
 
 module purge
 module load python/3.11
-python -m venv .venv
+# python -m venv .venv
 
 source .venv/bin/activate
 
-pip install --upgrade pip
-pip install "numpy<2" pandas numexpr torch torchvision matplotlib
+# pip install --upgrade pip
+# pip install "numpy<2" pandas numexpr torch torchvision matplotlib
 
 python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --seq-len 20 \
     --pred-horizon 10 \
-    --lr 3e-5 \
+    --backbone-mode frozen \
+    --lr 5e-4 \
     --dropout 0.4 \
+    --weight-decay 1e-2 \
     --no-actions \
-    --restart
+    --restart \
+    --save-path best_model.pth
 
 echo "Running post-training evaluation..."
 python evaluate.py \

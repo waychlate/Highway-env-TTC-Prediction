@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--no-scheduler", dest="use_scheduler", action="store_false", help="Disable learning rate scheduler")
     parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
+    parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay for AdamW optimizer (default: 1e-4)")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -129,7 +130,7 @@ def main():
         
     # Only optimize parameters that require gradients
     trainable_params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = optim.AdamW(trainable_params, lr=args.lr, weight_decay=1e-4)
+    optimizer = optim.AdamW(trainable_params, lr=args.lr, weight_decay=args.weight_decay)
     
     # Define learning rate scheduler
     scheduler = None
