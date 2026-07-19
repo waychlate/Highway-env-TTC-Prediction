@@ -30,7 +30,8 @@ def main():
     parser.add_argument("--hidden-dim", type=int, default=256, help="LSTM hidden dimension size")
     parser.add_argument("--freeze-backbone", action="store_true", default=True, help="Freeze the ResNet feature extractor weights")
     parser.add_argument("--unfreeze-backbone", dest="freeze_backbone", action="store_false", help="Do not freeze the ResNet weights")
-    parser.add_argument("--backbone-mode", type=str, default="partial", choices=["frozen", "partial", "unfrozen"], help="Backbone training mode: frozen (all layers frozen), partial (layer3 & layer4 unfrozen), unfrozen (all layers unfrozen)")
+    parser.add_argument("--backbone-mode", type=str, default="partial", choices=["frozen", "partial", "unfrozen"], help="Backbone training mode: frozen (all layers frozen), partial (only layer4 unfrozen, default), unfrozen (all layers unfrozen)")
+    parser.add_argument("--backbone-lr-mult", type=float, default=0.1, help="Learning rate multiplier for the unfrozen backbone layers (default: 0.1)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed")
     parser.add_argument("--save-path", type=str, default="best_model.pth", help="File path to save the best model weights")
     parser.add_argument("--num-train-episodes", type=int, default=None, help="Number of training episodes to use (None for all)")
@@ -104,9 +105,9 @@ def main():
         for param in model.feature_extractor.parameters():
             param.requires_grad = False
     elif backbone_mode == "partial":
-        print("Freezing early CNN backbone layers, keeping layer3 and layer4 unfrozen...")
+        print("Freezing early CNN backbone layers, keeping only layer4 unfrozen...")
         for name, param in model.feature_extractor.named_parameters():
-            if name.startswith('6.') or name.startswith('7.'):  # layer3 and layer4
+            if name.startswith('7.'):  # layer4 is index 7
                 param.requires_grad = True
             else:
                 param.requires_grad = False
@@ -128,9 +129,31 @@ def main():
         criterion = nn.MSELoss(reduction='none')
         print("Using MSE Loss with reduction='none'")
         
-    # Only optimize parameters that require gradients
-    trainable_params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = optim.AdamW(trainable_params, lr=args.lr, weight_decay=args.weight_decay)
+    # Setup parameters for optimizer, potentially with differential learning rates
+    backbone_params = []
+    other_params = []
+    
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            if name.startswith('feature_extractor.'):
+                backbone_params.append(param)
+            else:
+                other_params.append(param)
+                
+    trainable_params = backbone_params + other_params
+    
+    if len(backbone_params) > 0 and args.backbone_lr_mult != 1.0:
+        backbone_lr = args.lr * args.backbone_lr_mult
+        print(f"Using differential learning rates: backbone LR = {backbone_lr:.2e}, other layers LR = {args.lr:.2e}")
+        param_groups = [
+            {'params': backbone_params, 'lr': backbone_lr},
+            {'params': other_params, 'lr': args.lr}
+        ]
+    else:
+        print(f"Using uniform learning rate: {args.lr:.2e} for all layers")
+        param_groups = [{'params': backbone_params + other_params, 'lr': args.lr}]
+        
+    optimizer = optim.AdamW(param_groups, weight_decay=args.weight_decay)
     
     # Define learning rate scheduler
     scheduler = None

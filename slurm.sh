@@ -29,11 +29,10 @@ python train.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --seq-len 20 \
     --pred-horizon 10 \
-    --backbone-mode frozen \
-    --lr 5e-4 \
+    --backbone-mode partial \
+    --lr 1e-4 \
     --dropout 0.4 \
     --weight-decay 1e-2 \
-    --no-actions \
     --restart \
     --save-path best_model.pth
 
@@ -41,8 +40,7 @@ echo "Running post-training evaluation..."
 python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --seq-len 20 \
-    --pred-horizon 10 \
-    --no-actions
+    --pred-horizon 10
 
 echo "Job End"
 date

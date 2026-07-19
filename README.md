@@ -65,7 +65,8 @@ python train.py --train-dir data/train --test-dir data/test --epochs 10 --seq-le
 * `--hidden-dim`: Dimension of the LSTM hidden layers (default: `256`).
 * `--action-dim`: Dimension of the action embedding layer (default: `16`).
 * `--no-actions`: Disable vehicle action inputs in the model (runs in **frames-only** mode).
-* `--backbone-mode`: Set training mode for CNN backbone: `frozen` (all layers frozen), `partial` (layer3 & layer4 trainable, default), `unfrozen` (fully trainable).
+* `--backbone-mode`: Set training mode for CNN backbone: `frozen` (all layers frozen), `partial` (only `layer4` trainable, default), `unfrozen` (fully trainable).
+* `--backbone-lr-mult`: Learning rate multiplier for unfrozen CNN backbone layers (default: `0.1`, which multiplies the main learning rate by `0.1` for transfer learning).
 * `--weight-decay`: L2 regularization strength for the AdamW optimizer (default: `1e-4`).
 * `--loss-fn`: Loss criterion (`huber`, `mse`, `l1`).
 * `--restart`: Use this flag if you want to explicitly ignore any existing checkpoints and start from epoch 1.
