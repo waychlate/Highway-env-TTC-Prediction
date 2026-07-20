@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--use-scheduler", action="store_true", default=True, help="Use Cosine Annealing learning rate scheduler")
     parser.add_argument("--no-scheduler", dest="use_scheduler", action="store_false", help="Disable learning rate scheduler")
     parser.add_argument("--action-dim", type=int, default=16, help="Action embedding dimension size")
+    parser.add_argument("--lstm-layers", type=int, default=2, help="Number of LSTM layers (default: 2)")
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay for AdamW optimizer (default: 1e-4)")
     
@@ -92,8 +93,14 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, and use_actions={args.use_actions}...")
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, dropout=args.dropout, action_dim=args.action_dim, use_actions=args.use_actions)
+    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
+    model = VideoTTCPredictor(
+        hidden_dim=args.hidden_dim, 
+        dropout=args.dropout, 
+        action_dim=args.action_dim, 
+        use_actions=args.use_actions,
+        num_layers=args.lstm_layers
+    )
     
     # Set backbone gradients based on mode and flags
     backbone_mode = args.backbone_mode

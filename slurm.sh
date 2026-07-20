@@ -27,10 +27,14 @@ source .venv/bin/activate
 python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
+    --epochs 5 \
+    --hidden-dim 128 \
+    --lstm-layers 1 \
     --seq-len 20 \
     --pred-horizon 10 \
     --backbone-mode partial \
     --lr 1e-4 \
+    --backbone-lr-mult 0.3 \
     --dropout 0.4 \
     --weight-decay 1e-2 \
     --restart \
@@ -39,6 +43,8 @@ python train.py \
 echo "Running post-training evaluation..."
 python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
+    --hidden-dim 128 \
+    --lstm-layers 1 \
     --seq-len 20 \
     --pred-horizon 10
 

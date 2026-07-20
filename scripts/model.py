@@ -3,7 +3,7 @@ import torch.nn as nn
 import torchvision.models as models
 
 class VideoTTCPredictor(nn.Module):
-    def __init__(self, hidden_dim=256, dropout=0.2, action_dim=16, use_actions=True):
+    def __init__(self, hidden_dim=256, dropout=0.2, action_dim=16, use_actions=True, num_layers=2):
         super(VideoTTCPredictor, self).__init__()
         self.use_actions = use_actions
         
@@ -23,9 +23,9 @@ class VideoTTCPredictor(nn.Module):
         self.lstm = nn.LSTM(
             input_size=lstm_input_size, 
             hidden_size=hidden_dim, 
-            num_layers=2, 
+            num_layers=num_layers, 
             batch_first=True,
-            dropout=dropout if dropout > 0 else 0
+            dropout=dropout if (dropout > 0 and num_layers > 1) else 0
         )
         
         # 2. Regression head to output the continuous TTC value

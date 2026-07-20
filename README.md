@@ -63,6 +63,7 @@ python train.py --train-dir data/train --test-dir data/test --epochs 10 --seq-le
 ### 3. Hyperparameters & Options
 
 * `--hidden-dim`: Dimension of the LSTM hidden layers (default: `256`).
+* `--lstm-layers`: Number of stacked LSTM layers (default: `2`).
 * `--action-dim`: Dimension of the action embedding layer (default: `16`).
 * `--no-actions`: Disable vehicle action inputs in the model (runs in **frames-only** mode).
 * `--backbone-mode`: Set training mode for CNN backbone: `frozen` (all layers frozen), `partial` (only `layer4` trainable, default), `unfrozen` (fully trainable).
