@@ -33,10 +33,10 @@ python train.py \
     --seq-len 20 \
     --pred-horizon 10 \
     --backbone-mode partial \
-    --lr 1e-4 \
+    --lr 3e-5 \
     --backbone-lr-mult 0.3 \
-    --dropout 0.4 \
-    --weight-decay 1e-2 \
+    --dropout 0.5 \
+    --weight-decay 0.05 \
     --restart \
     --save-path best_model.pth
 
