@@ -3,10 +3,10 @@ import torch.nn as nn
 import torchvision.models as models
 
 class SmallCNN(nn.Module):
-    def __init__(self, feature_dim=256):
+    def __init__(self, feature_dim=256, in_channels=3):
         super(SmallCNN, self).__init__()
         self.net = nn.Sequential(
-            nn.Conv2d(3, 32, kernel_size=5, stride=2, padding=2), # (32, 32, 128)
+            nn.Conv2d(in_channels, 32, kernel_size=5, stride=2, padding=2), # (32, 32, 128)
             nn.BatchNorm2d(32),
             nn.ReLU(),
             nn.MaxPool2d(2, 2), # (32, 16, 64)
@@ -29,7 +29,7 @@ class SmallCNN(nn.Module):
         return self.net(x)
 
 class VideoTTCPredictor(nn.Module):
-    def __init__(self, hidden_dim=256, dropout=0.2, action_dim=16, use_actions=True, num_layers=2, backbone_type="custom"):
+    def __init__(self, hidden_dim=256, dropout=0.2, action_dim=16, use_actions=True, num_layers=2, backbone_type="custom", in_channels=3):
         super(VideoTTCPredictor, self).__init__()
         self.use_actions = use_actions
         self.backbone_type = backbone_type
@@ -37,10 +37,13 @@ class VideoTTCPredictor(nn.Module):
         # 1. Feature extractor selection
         if self.backbone_type == "resnet18":
             resnet = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+            if in_channels != 3:
+                # Replace first conv layer for stacked channels
+                resnet.conv1 = nn.Conv2d(in_channels, 64, kernel_size=7, stride=2, padding=3, bias=False)
             self.feature_extractor = nn.Sequential(*list(resnet.children())[:-1])
             cnn_out_dim = 512
         else:
-            self.feature_extractor = SmallCNN(feature_dim=256)
+            self.feature_extractor = SmallCNN(feature_dim=256, in_channels=in_channels)
             cnn_out_dim = 256
         
         if self.use_actions and action_dim > 0:

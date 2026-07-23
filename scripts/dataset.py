@@ -8,13 +8,14 @@ from PIL import Image
 from concurrent.futures import ThreadPoolExecutor
 
 class TTCDataset(Dataset):
-    def __init__(self, data_dir, seq_len=20, pred_horizon=10, resize_shape=(64, 256), use_cache=True, return_weights=False):
+    def __init__(self, data_dir, seq_len=20, pred_horizon=10, resize_shape=(64, 256), use_cache=True, return_weights=False, stack_frames=False):
         self.data_dir = data_dir
         self.seq_len = seq_len
         self.pred_horizon = pred_horizon
         self.resize_shape = resize_shape
         self.use_cache = use_cache
         self.return_weights = return_weights
+        self.stack_frames = stack_frames
         
         # Get sorted lists of CSV and NPZ files
         self.csv_files = sorted(glob.glob(os.path.join(data_dir, "*_data.csv")))
@@ -114,13 +115,25 @@ class TTCDataset(Dataset):
                 indices = [0] * (-start_idx) + list(range(0, step_idx + 1))
                 seq_tensor = self.visuals[ep_idx, indices]
                 seq_actions = self.actions[ep_idx, indices]
+                if self.stack_frames:
+                    prev_indices = [0] * (-start_idx + 1) + list(range(0, step_idx))
+                    prev_seq_tensor = self.visuals[ep_idx, prev_indices]
             else:
                 seq_tensor = self.visuals[ep_idx, start_idx : step_idx + 1]
                 seq_actions = self.actions[ep_idx, start_idx : step_idx + 1]
+                if self.stack_frames:
+                    prev_start_idx = max(0, start_idx - 1)
+                    if start_idx == 0:
+                        prev_indices = [0] + list(range(0, step_idx))
+                        prev_seq_tensor = self.visuals[ep_idx, prev_indices]
+                    else:
+                        prev_seq_tensor = self.visuals[ep_idx, start_idx - 1 : step_idx]
                 
             target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
             target_ttc = self.ttc[ep_idx, target_step_idx]
             seq_tensor = seq_tensor.float() / 255.0
+            if self.stack_frames:
+                prev_seq_tensor = prev_seq_tensor.float() / 255.0
         else:
             visuals, ttc, actions = self._load_episode_on_the_fly(ep_idx)
             start_idx = step_idx - self.seq_len + 1
@@ -143,12 +156,20 @@ class TTCDataset(Dataset):
             target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
             target_ttc = ttc[target_step_idx]
             seq_tensor = torch.from_numpy(seq_visuals).permute(0, 3, 1, 2).float() / 255.0
+            if self.stack_frames:
+                prev_indices = [max(0, i - 1) for i in (range(start_idx, step_idx + 1) if start_idx >= 0 else [0]*(-start_idx) + list(range(0, step_idx + 1)))]
+                prev_visuals = visuals[prev_indices]
+                prev_seq_tensor = torch.from_numpy(prev_visuals).permute(0, 3, 1, 2).float() / 255.0
         
         # ImageNet normalization
-        # Mean: [0.485, 0.456, 0.406], Std: [0.229, 0.224, 0.225]
         mean = torch.tensor([0.485, 0.456, 0.406]).view(1, 3, 1, 1)
         std = torch.tensor([0.229, 0.224, 0.225]).view(1, 3, 1, 1)
         seq_tensor = (seq_tensor - mean) / std
+        
+        if self.stack_frames:
+            prev_seq_tensor = (prev_seq_tensor - mean) / std
+            # Concatenate frame_t and frame_t-1 along channel dimension (dim=1 of shape (20, 3, H, W)) -> (20, 6, H, W)
+            seq_tensor = torch.cat([seq_tensor, prev_seq_tensor], dim=1)
         
         if self.return_weights:
             # Proportional weight: (number of real frames) / seq_len

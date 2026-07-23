@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     parser.add_argument("--lstm-layers", type=int, default=2, help="Number of LSTM layers (default: 2)")
     parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
+    parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (6 channels) for input")
     
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -34,13 +35,15 @@ def main():
         data_dir=args.test_dir,
         seq_len=args.seq_len,
         pred_horizon=args.pred_horizon,
-        resize_shape=(args.resize_h, args.resize_w)
+        resize_shape=(args.resize_h, args.resize_w),
+        stack_frames=args.stack_frames
     )
     
     loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate and Load Model
-    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim, use_actions=args.use_actions, num_layers=args.lstm_layers, backbone_type=args.backbone)
+    in_channels = 6 if args.stack_frames else 3
+    model = VideoTTCPredictor(hidden_dim=args.hidden_dim, action_dim=args.action_dim, use_actions=args.use_actions, num_layers=args.lstm_layers, backbone_type=args.backbone, in_channels=in_channels)
     model_path = args.model_path
     if not os.path.exists(model_path):
         fallback_path = model_path.replace(".pth", "_final.pth")

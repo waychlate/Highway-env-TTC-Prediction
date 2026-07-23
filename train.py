@@ -47,6 +47,7 @@ def main():
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay for AdamW optimizer (default: 1e-4)")
     parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
+    parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (6 channels) for input")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -62,7 +63,8 @@ def main():
         pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
         use_cache=args.use_cache,
-        return_weights=True
+        return_weights=True,
+        stack_frames=args.stack_frames
     )
     
     print("Loading test dataset...")
@@ -71,7 +73,8 @@ def main():
         seq_len=args.seq_len,
         pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
-        use_cache=args.use_cache
+        use_cache=args.use_cache,
+        stack_frames=args.stack_frames
     )
     
     # Apply limit on episodes if specified
@@ -94,14 +97,16 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with backbone={args.backbone}, hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
+    in_channels = 6 if args.stack_frames else 3
+    print(f"Creating VideoTTCPredictor model with backbone={args.backbone}, in_channels={in_channels}, hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
     model = VideoTTCPredictor(
         hidden_dim=args.hidden_dim, 
         dropout=args.dropout, 
         action_dim=args.action_dim, 
         use_actions=args.use_actions,
         num_layers=args.lstm_layers,
-        backbone_type=args.backbone
+        backbone_type=args.backbone,
+        in_channels=in_channels
     )
     
     # Set backbone gradients based on mode and architecture
