@@ -32,6 +32,7 @@ python train.py \
     --resize-h 150 \
     --resize-w 600 \
     --no-cache \
+    --batch-size 16 \
     --epochs 10 \
     --hidden-dim 128 \
     --lstm-layers 1 \
@@ -51,6 +52,7 @@ python evaluate.py \
     --resize-h 150 \
     --resize-w 600 \
     --no-cache \
+    --batch-size 16 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \
