@@ -28,14 +28,14 @@ python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --backbone custom \
-    --epochs 10 \
+    --epochs 25 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \
     --pred-horizon 10 \
-    --lr 1e-4 \
+    --lr 3e-4 \
     --dropout 0.3 \
-    --weight-decay 1e-3 \
+    --weight-decay 1e-4 \
     --restart \
     --save-path best_model.pth
 

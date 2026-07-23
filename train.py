@@ -156,6 +156,9 @@ def main():
                 
     trainable_params = backbone_params + other_params
     
+    if args.backbone == "custom":
+        args.backbone_lr_mult = 1.0
+
     if len(backbone_params) > 0 and args.backbone_lr_mult != 1.0:
         backbone_lr = args.lr * args.backbone_lr_mult
         print(f"Using differential learning rates: backbone LR = {backbone_lr:.2e}, other layers LR = {args.lr:.2e}")
