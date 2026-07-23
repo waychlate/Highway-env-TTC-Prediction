@@ -28,7 +28,7 @@ python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --backbone custom \
-    --stack-frames \
+    --num-stacked-frames 3 \
     --epochs 10 \
     --hidden-dim 128 \
     --lstm-layers 1 \
@@ -44,7 +44,7 @@ echo "Running post-training evaluation..."
 python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --backbone custom \
-    --stack-frames \
+    --num-stacked-frames 3 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \

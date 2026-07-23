@@ -47,7 +47,8 @@ def main():
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay for AdamW optimizer (default: 1e-4)")
     parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
-    parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (6 channels) for input")
+    parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (2 frames = 6 channels) for input")
+    parser.add_argument("--num-stacked-frames", type=int, default=1, help="Number of consecutive frames to stack along channel dimension (default: 1, e.g. 3 = 9 channels)")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -64,7 +65,8 @@ def main():
         resize_shape=(args.resize_h, args.resize_w),
         use_cache=args.use_cache,
         return_weights=True,
-        stack_frames=args.stack_frames
+        stack_frames=args.stack_frames,
+        num_stacked_frames=args.num_stacked_frames
     )
     
     print("Loading test dataset...")
@@ -74,7 +76,8 @@ def main():
         pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
         use_cache=args.use_cache,
-        stack_frames=args.stack_frames
+        stack_frames=args.stack_frames,
+        num_stacked_frames=args.num_stacked_frames
     )
     
     # Apply limit on episodes if specified
@@ -97,7 +100,7 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    in_channels = 6 if args.stack_frames else 3
+    in_channels = 3 * train_dataset.num_stacked_frames
     print(f"Creating VideoTTCPredictor model with backbone={args.backbone}, in_channels={in_channels}, hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
     model = VideoTTCPredictor(
         hidden_dim=args.hidden_dim, 
