@@ -27,22 +27,22 @@ source .venv/bin/activate
 python train.py \
     --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
-    --epochs 5 \
+    --backbone custom \
+    --epochs 10 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \
     --pred-horizon 10 \
-    --backbone-mode partial \
-    --lr 3e-5 \
-    --backbone-lr-mult 0.3 \
-    --dropout 0.5 \
-    --weight-decay 0.05 \
+    --lr 1e-4 \
+    --dropout 0.3 \
+    --weight-decay 1e-3 \
     --restart \
     --save-path best_model.pth
 
 echo "Running post-training evaluation..."
 python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
+    --backbone custom \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \

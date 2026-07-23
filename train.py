@@ -46,6 +46,7 @@ def main():
     parser.add_argument("--lstm-layers", type=int, default=2, help="Number of LSTM layers (default: 2)")
     parser.add_argument("--no-actions", dest="use_actions", action="store_false", default=True, help="Disable vehicle action input in the model")
     parser.add_argument("--weight-decay", type=float, default=1e-4, help="Weight decay for AdamW optimizer (default: 1e-4)")
+    parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -93,35 +94,41 @@ def main():
     test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
     
     # 2. Instantiate Model
-    print(f"Creating VideoTTCPredictor model with hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
+    print(f"Creating VideoTTCPredictor model with backbone={args.backbone}, hidden_dim={args.hidden_dim}, dropout={args.dropout}, action_dim={args.action_dim}, use_actions={args.use_actions}, and lstm_layers={args.lstm_layers}...")
     model = VideoTTCPredictor(
         hidden_dim=args.hidden_dim, 
         dropout=args.dropout, 
         action_dim=args.action_dim, 
         use_actions=args.use_actions,
-        num_layers=args.lstm_layers
+        num_layers=args.lstm_layers,
+        backbone_type=args.backbone
     )
     
-    # Set backbone gradients based on mode and flags
-    backbone_mode = args.backbone_mode
-    if not args.freeze_backbone:  # Overridden by --unfreeze-backbone
-        backbone_mode = "unfrozen"
-        
-    if backbone_mode == "frozen":
-        print("Freezing all CNN backbone weights...")
-        for param in model.feature_extractor.parameters():
-            param.requires_grad = False
-    elif backbone_mode == "partial":
-        print("Freezing early CNN backbone layers, keeping only layer4 unfrozen...")
-        for name, param in model.feature_extractor.named_parameters():
-            if name.startswith('7.'):  # layer4 is index 7
-                param.requires_grad = True
-            else:
-                param.requires_grad = False
-    else:
-        print("Keeping all CNN backbone weights unfrozen (full fine-tuning)...")
+    # Set backbone gradients based on mode and architecture
+    if args.backbone == "custom":
+        print("Using Custom SmallCNN backbone (training all ~150k parameters from scratch)...")
         for param in model.feature_extractor.parameters():
             param.requires_grad = True
+    else:
+        backbone_mode = args.backbone_mode
+        if not args.freeze_backbone:  # Overridden by --unfreeze-backbone
+            backbone_mode = "unfrozen"
+            
+        if backbone_mode == "frozen":
+            print("Freezing all CNN backbone weights...")
+            for param in model.feature_extractor.parameters():
+                param.requires_grad = False
+        elif backbone_mode == "partial":
+            print("Freezing early CNN backbone layers, keeping only layer4 unfrozen...")
+            for name, param in model.feature_extractor.named_parameters():
+                if name.startswith('7.'):  # layer4 is index 7
+                    param.requires_grad = True
+                else:
+                    param.requires_grad = False
+        else:
+            print("Keeping all CNN backbone weights unfrozen (full fine-tuning)...")
+            for param in model.feature_extractor.parameters():
+                param.requires_grad = True
             
     model = model.to(device)
     
