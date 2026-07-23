@@ -29,6 +29,9 @@ python train.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --backbone custom \
     --num-stacked-frames 3 \
+    --resize-h 150 \
+    --resize-w 600 \
+    --no-cache \
     --epochs 10 \
     --hidden-dim 128 \
     --lstm-layers 1 \
@@ -45,6 +48,9 @@ python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
     --backbone custom \
     --num-stacked-frames 3 \
+    --resize-h 150 \
+    --resize-w 600 \
+    --no-cache \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \

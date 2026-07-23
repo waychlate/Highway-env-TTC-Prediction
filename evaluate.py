@@ -25,6 +25,7 @@ def main():
     parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
     parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (2 frames = 6 channels) for input")
     parser.add_argument("--num-stacked-frames", type=int, default=1, help="Number of consecutive frames to stack along channel dimension (default: 1, e.g. 3 = 9 channels)")
+    parser.add_argument("--no-cache", dest="use_cache", action="store_false", default=True, help="Disable caching resized dataset in RAM")
     
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -37,6 +38,7 @@ def main():
         seq_len=args.seq_len,
         pred_horizon=args.pred_horizon,
         resize_shape=(args.resize_h, args.resize_w),
+        use_cache=args.use_cache,
         stack_frames=args.stack_frames,
         num_stacked_frames=args.num_stacked_frames
     )
