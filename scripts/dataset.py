@@ -27,9 +27,16 @@ class TTCDataset(Dataset):
         
         # Get sorted lists of CSV and NPZ files
         self.csv_files = sorted(glob.glob(os.path.join(data_dir, "*_data.csv")))
+        if len(self.csv_files) == 0:
+            self.csv_files = sorted(glob.glob(os.path.join(data_dir, "*.csv")))
+            
         self.npz_files = sorted(glob.glob(os.path.join(data_dir, "*_visuals.npz")))
-        
-        assert len(self.csv_files) == len(self.npz_files), f"Mismatch: {len(self.csv_files)} CSVs and {len(self.npz_files)} NPZs"
+        if len(self.npz_files) == 0:
+            self.npz_files = sorted(glob.glob(os.path.join(data_dir, "*.npz")))
+            
+        assert len(self.csv_files) > 0, f"Error: No CSV files found in dataset directory: {data_dir}"
+        assert len(self.csv_files) == len(self.npz_files), f"Mismatch in {data_dir}: {len(self.csv_files)} CSVs and {len(self.npz_files)} NPZs"
+        print(f"Dataset successfully loaded {len(self.csv_files)} episode files from {data_dir}")
         
         self.num_episodes = len(self.csv_files)
         
@@ -81,36 +88,23 @@ class TTCDataset(Dataset):
         self.ttc[ep_idx] = torch.from_numpy(ttc)
         self.actions[ep_idx] = torch.from_numpy(actions)
 
-    def _load_episode_on_the_fly(self, ep_idx):
+    def _load_episode_data(self, ep_idx):
         if ep_idx == self.last_ep_idx:
-            return self.last_visuals, self.last_ttc, self.last_actions
+            return self.last_npz, self.last_ttc, self.last_actions
             
         csv_path = self.csv_files[ep_idx]
         npz_path = self.npz_files[ep_idx]
         
-        # Load CSV data
         df = pd.read_csv(csv_path)
         ttc = df['obs_ttc'].values.astype(np.float32)
         actions = df['action'].values.astype(np.int64)
+        npz = np.load(npz_path, mmap_mode='r')
         
-        # Load NPZ visuals
-        npz = np.load(npz_path)
-        visuals = npz['visuals'] # (101, 150, 600, 3) uint8
-        
-        # Resize visuals if shape is different
-        if self.resize_shape is not None:
-            resized_visuals = []
-            for t in range(visuals.shape[0]):
-                img = Image.fromarray(visuals[t])
-                img = img.resize((self.resize_shape[1], self.resize_shape[0]), Image.BILINEAR)
-                resized_visuals.append(np.array(img))
-            visuals = np.stack(resized_visuals, axis=0) # (101, H_new, W_new, 3)
-            
         self.last_ep_idx = ep_idx
-        self.last_visuals = visuals
+        self.last_npz = npz
         self.last_ttc = ttc
         self.last_actions = actions
-        return visuals, ttc, actions
+        return npz, ttc, actions
 
     def __len__(self):
         return self.total_samples
@@ -141,12 +135,23 @@ class TTCDataset(Dataset):
             target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
             target_ttc = self.ttc[ep_idx, target_step_idx]
         else:
-            visuals, ttc, actions = self._load_episode_on_the_fly(ep_idx)
+            npz, ttc, actions = self._load_episode_data(ep_idx)
+            raw_visuals = npz['visuals'] # (1000, 150, 600, 3) mmap
+            
             seq_tensors = []
             for k in range(self.num_stacked_frames):
                 k_indices = [max(0, idx_val - k) for idx_val in base_indices]
-                k_visuals = visuals[k_indices]
-                k_tensor = torch.from_numpy(k_visuals).permute(0, 3, 1, 2).float() / 255.0
+                sub_visuals = raw_visuals[k_indices] # Only read requested 20 frames!
+                
+                if self.resize_shape is not None:
+                    resized_frames = []
+                    for t in range(sub_visuals.shape[0]):
+                        img = Image.fromarray(sub_visuals[t])
+                        img = img.resize((self.resize_shape[1], self.resize_shape[0]), Image.BILINEAR)
+                        resized_frames.append(np.array(img))
+                    sub_visuals = np.stack(resized_frames, axis=0)
+                    
+                k_tensor = torch.from_numpy(sub_visuals).permute(0, 3, 1, 2).float() / 255.0
                 k_tensor = (k_tensor - mean) / std
                 seq_tensors.append(k_tensor)
                 
