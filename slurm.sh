@@ -24,6 +24,8 @@ source .venv/bin/activate
 # pip install --upgrade pip
 # pip install "numpy<2" pandas numexpr torch torchvision matplotlib
 
+rm -f checkpoint.pth
+
 python train.py \
     --train-dir /blue/iruchkin/khek.do/dataset_episodes_1000/train \
     --test-dir /blue/iruchkin/khek.do/dataset_episodes_1000/test \
