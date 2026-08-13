@@ -25,15 +25,12 @@ source .venv/bin/activate
 # pip install "numpy<2" pandas numexpr torch torchvision matplotlib
 
 python train.py \
-    --train-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/train \
-    --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
+    --train-dir /blue/iruchkin/khek.do/dataset_episodes_1000/train \
+    --test-dir /blue/iruchkin/khek.do/dataset_episodes_1000/test \
     --backbone custom \
     --num-stacked-frames 3 \
-    --resize-h 150 \
-    --resize-w 600 \
-    --no-cache \
-    --batch-size 16 \
     --epochs 10 \
+    --batch-size 32 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \
@@ -46,13 +43,10 @@ python train.py \
 
 echo "Running post-training evaluation..."
 python evaluate.py \
-    --test-dir /blue/iruchkin/khek.do/sorted_ttc_padding_fix/test \
+    --test-dir /blue/iruchkin/khek.do/dataset_episodes_1000/test \
     --backbone custom \
     --num-stacked-frames 3 \
-    --resize-h 150 \
-    --resize-w 600 \
-    --no-cache \
-    --batch-size 16 \
+    --batch-size 32 \
     --hidden-dim 128 \
     --lstm-layers 1 \
     --seq-len 20 \

@@ -32,15 +32,18 @@ class TTCDataset(Dataset):
         assert len(self.csv_files) == len(self.npz_files), f"Mismatch: {len(self.csv_files)} CSVs and {len(self.npz_files)} NPZs"
         
         self.num_episodes = len(self.csv_files)
-        self.steps_per_episode = 101 # Constant in this dataset
+        
+        # Auto-detect steps_per_episode dynamically (supports 1000 frames, 101 frames, etc.)
+        first_df = pd.read_csv(self.csv_files[0])
+        self.steps_per_episode = len(first_df)
         self.total_samples = self.num_episodes * self.steps_per_episode
         
         if self.use_cache:
-            print(f"Preloading and resizing {self.num_episodes} episodes in parallel from {data_dir}...")
+            print(f"Preloading and resizing {self.num_episodes} episodes ({self.steps_per_episode} steps/ep) in parallel from {data_dir}...")
             # Pre-allocate shared memory PyTorch tensors to prevent copy-on-write RAM inflation
-            self.visuals = torch.zeros((self.num_episodes, 101, 3, self.resize_shape[0], self.resize_shape[1]), dtype=torch.uint8)
-            self.ttc = torch.zeros((self.num_episodes, 101), dtype=torch.float32)
-            self.actions = torch.zeros((self.num_episodes, 101), dtype=torch.long)
+            self.visuals = torch.zeros((self.num_episodes, self.steps_per_episode, 3, self.resize_shape[0], self.resize_shape[1]), dtype=torch.uint8)
+            self.ttc = torch.zeros((self.num_episodes, self.steps_per_episode), dtype=torch.float32)
+            self.actions = torch.zeros((self.num_episodes, self.steps_per_episode), dtype=torch.long)
             
             with ThreadPoolExecutor(max_workers=16) as executor:
                 executor.map(self._preload_episode, range(self.num_episodes))
