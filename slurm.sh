@@ -29,6 +29,7 @@ python train.py \
     --test-dir /blue/iruchkin/khek.do/dataset_episodes_1000/test \
     --backbone custom \
     --num-stacked-frames 3 \
+    --no-cache \
     --epochs 10 \
     --batch-size 32 \
     --hidden-dim 128 \
@@ -46,6 +47,7 @@ python evaluate.py \
     --test-dir /blue/iruchkin/khek.do/dataset_episodes_1000/test \
     --backbone custom \
     --num-stacked-frames 3 \
+    --no-cache \
     --batch-size 32 \
     --hidden-dim 128 \
     --lstm-layers 1 \
