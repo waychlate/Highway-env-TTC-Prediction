@@ -43,7 +43,7 @@ def main():
         num_stacked_frames=args.num_stacked_frames
     )
     
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=2, pin_memory=True)
     
     # 2. Instantiate and Load Model
     in_channels = 3 * dataset.num_stacked_frames

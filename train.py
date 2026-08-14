@@ -49,6 +49,7 @@ def main():
     parser.add_argument("--backbone", type=str, default="custom", choices=["custom", "resnet18"], help="CNN backbone architecture (default: custom)")
     parser.add_argument("--stack-frames", action="store_true", default=False, help="Stack current and previous frames (2 frames = 6 channels) for input")
     parser.add_argument("--num-stacked-frames", type=int, default=1, help="Number of consecutive frames to stack along channel dimension (default: 1, e.g. 3 = 9 channels)")
+    parser.add_argument("--num-workers", type=int, default=2, help="Number of DataLoader worker processes (default: 2)")
     
     args = parser.parse_args()
     set_seed(args.seed)
@@ -96,8 +97,8 @@ def main():
         print(f"Limiting test to {test_dataset.num_episodes} episodes ({len(test_dataset)} samples)")
         
     # Create Dataloaders
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=4, pin_memory=True)
-    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
+    test_loader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=True)
     
     # 2. Instantiate Model
     in_channels = 3 * train_dataset.num_stacked_frames
