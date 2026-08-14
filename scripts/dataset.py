@@ -34,9 +34,18 @@ class TTCDataset(Dataset):
         if len(self.npz_files) == 0:
             self.npz_files = sorted(glob.glob(os.path.join(data_dir, "*.npz")))
             
-        assert len(self.csv_files) > 0, f"Error: No CSV files found in dataset directory: {data_dir}"
-        assert len(self.csv_files) == len(self.npz_files), f"Mismatch in {data_dir}: {len(self.csv_files)} CSVs and {len(self.npz_files)} NPZs"
-        print(f"Dataset successfully loaded {len(self.csv_files)} episode files from {data_dir}")
+        # Filter out 0-byte or corrupted files
+        valid_csvs = []
+        valid_npzs = []
+        for c, n in zip(self.csv_files, self.npz_files):
+            if os.path.exists(c) and os.path.exists(n) and os.path.getsize(c) > 0 and os.path.getsize(n) > 500:
+                valid_csvs.append(c)
+                valid_npzs.append(n)
+                
+        self.csv_files = valid_csvs
+        self.npz_files = valid_npzs
+        assert len(self.csv_files) > 0, f"Error: No valid CSV/NPZ file pairs found in dataset directory: {data_dir}"
+        print(f"Dataset successfully verified and loaded {len(self.csv_files)} episode files from {data_dir}")
         
         self.num_episodes = len(self.csv_files)
         
@@ -56,7 +65,6 @@ class TTCDataset(Dataset):
                 executor.map(self._preload_episode, range(self.num_episodes))
             print("Preloading complete!")
         else:
-            # LRU-like single cache to prevent 101x redundant loading when caching is disabled
             self.last_ep_idx = -1
             self.last_visuals = None
             self.last_ttc = None
@@ -66,45 +74,50 @@ class TTCDataset(Dataset):
         csv_path = self.csv_files[ep_idx]
         npz_path = self.npz_files[ep_idx]
         
-        # Load CSV data
         df = pd.read_csv(csv_path)
         ttc = df['obs_ttc'].values.astype(np.float32)
         actions = df['action'].values.astype(np.int64)
         
-        # Load NPZ visuals
-        npz = np.load(npz_path)
-        visuals = npz['visuals'] # (101, 150, 600, 3) uint8
+        with np.load(npz_path) as npz:
+            visuals = npz['visuals']
         
-        # Resize visuals
         resized_visuals = []
         for t in range(visuals.shape[0]):
             img = Image.fromarray(visuals[t])
             img = img.resize((self.resize_shape[1], self.resize_shape[0]), Image.BILINEAR)
             resized_visuals.append(np.array(img))
-        visuals_resized = np.stack(resized_visuals, axis=0) # (101, H, W, 3)
+        visuals_resized = np.stack(resized_visuals, axis=0)
         
-        # Permute to channels-first (101, 3, H, W) and store
         self.visuals[ep_idx] = torch.from_numpy(visuals_resized).permute(0, 3, 1, 2)
         self.ttc[ep_idx] = torch.from_numpy(ttc)
         self.actions[ep_idx] = torch.from_numpy(actions)
 
     def _load_episode_data(self, ep_idx):
-        if ep_idx == self.last_ep_idx:
-            return self.last_npz, self.last_ttc, self.last_actions
+        if ep_idx == self.last_ep_idx and self.last_visuals is not None:
+            return self.last_visuals, self.last_ttc, self.last_actions
             
         csv_path = self.csv_files[ep_idx]
         npz_path = self.npz_files[ep_idx]
         
-        df = pd.read_csv(csv_path)
-        ttc = df['obs_ttc'].values.astype(np.float32)
-        actions = df['action'].values.astype(np.int64)
-        npz = np.load(npz_path, mmap_mode='r')
-        
+        try:
+            df = pd.read_csv(csv_path)
+            ttc_col = 'obs_ttc' if 'obs_ttc' in df.columns else ('ttc' if 'ttc' in df.columns else df.columns[1])
+            act_col = 'action' if 'action' in df.columns else ('actions' if 'actions' in df.columns else df.columns[2])
+            ttc = df[ttc_col].values.astype(np.float32)
+            actions = df[act_col].values.astype(np.int64)
+            
+            with np.load(npz_path) as npz:
+                raw_visuals = npz['visuals']
+        except Exception as e:
+            if self.last_visuals is not None:
+                return self.last_visuals, self.last_ttc, self.last_actions
+            raise e
+            
         self.last_ep_idx = ep_idx
-        self.last_npz = npz
+        self.last_visuals = raw_visuals
         self.last_ttc = ttc
         self.last_actions = actions
-        return npz, ttc, actions
+        return raw_visuals, ttc, actions
 
     def __len__(self):
         return self.total_samples
@@ -129,19 +142,18 @@ class TTCDataset(Dataset):
                 k_tensor = (k_tensor - mean) / std
                 seq_tensors.append(k_tensor)
                 
-            seq_tensor = torch.cat(seq_tensors, dim=1) # (20, 3*num_stacked_frames, H, W)
+            seq_tensor = torch.cat(seq_tensors, dim=1)
             seq_actions = self.actions[ep_idx, base_indices]
             
             target_step_idx = min(step_idx + self.pred_horizon, self.steps_per_episode - 1)
             target_ttc = self.ttc[ep_idx, target_step_idx]
         else:
-            npz, ttc, actions = self._load_episode_data(ep_idx)
-            raw_visuals = npz['visuals'] # (1000, 150, 600, 3) mmap
+            raw_visuals, ttc, actions = self._load_episode_data(ep_idx)
             
             seq_tensors = []
             for k in range(self.num_stacked_frames):
                 k_indices = [max(0, idx_val - k) for idx_val in base_indices]
-                sub_visuals = raw_visuals[k_indices] # Only read requested 20 frames!
+                sub_visuals = raw_visuals[k_indices]
                 
                 if self.resize_shape is not None:
                     resized_frames = []

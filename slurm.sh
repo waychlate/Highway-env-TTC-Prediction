@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ttc_train          # Job name
 #SBATCH --output=logs/ttc_train_%j.log     # Standard output log
-#SBATCH --error=ttc_train_%j.err      # Standard error log
+#SBATCH --error=errors/ttc_train_%j.err      # Standard error log
 #SBATCH --mail-type=BEGIN,END,FAIL          # Mail events (NONE, BEGIN, END, FAIL, ALL)
 #SBATCH --mail-user=khek.do@ufl.edu # Where to send mail
 #SBATCH --nodes=1                     # Run all tasks on a single node
@@ -23,8 +23,6 @@ source .venv/bin/activate
 
 # pip install --upgrade pip
 # pip install "numpy<2" pandas numexpr torch torchvision matplotlib
-
-rm -f checkpoint.pth
 
 python train.py \
     --train-dir /blue/iruchkin/khek.do/dataset_episodes_1000/train \
